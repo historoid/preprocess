@@ -15,5 +15,5 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    user: "${UID}:${GID}"
+    # user: "${UID}:${GID}"
     working_dir: /home/rapids"
