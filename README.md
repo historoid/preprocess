@@ -54,6 +54,15 @@ docker tag historoid/rapids-notebook:win historoid/rapids-notebook:latest
 docker push historoid/rapids-notebook:latest
 ```
 
+### フォルダの権限
+
+`./mydata`をコンテナの`/home/rapids/mydata`にマウントします。  
+このときWSL2側のフォルダの権限を変更しておいてください。
+
+```bash
+sudo chmod -R 777 ./mydata
+```
+
 ### GPUを使えているかどうかの確認
 
 ```python
