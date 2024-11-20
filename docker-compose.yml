@@ -2,7 +2,7 @@ version: '3.9'
 services:
   preprocess:
     image: my-rapids-notebook
-    container_name: historoid_preprocess
+    container_name: preprocess
     restart: unless-stopped
     ports:
       - "8888:8888"
