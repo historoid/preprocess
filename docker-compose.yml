@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   preprocess:
-    image: my-rapids-notebook
+    image: historoid/rapids-notebook:latest
     container_name: preprocess
     restart: unless-stopped
     ports:
