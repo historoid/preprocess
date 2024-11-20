@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   preprocess:
     image: historoid/rapids-notebook:latest
