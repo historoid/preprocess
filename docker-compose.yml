@@ -1,6 +1,7 @@
 services:
   preprocess:
     image: historoid/rapids-notebook:latest
+    user: "${UID}:${GID}"
     container_name: preprocess
     restart: unless-stopped
     ports:
@@ -13,7 +14,10 @@ services:
           devices:
             - capabilities: ["gpu"]
     environment:
+      - USER_ID=${UID}
+      - GROUP_ID=${GID}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - JUPYTER_RUNTIME_DIR=/home/rapids/mydata/.jupyter_runtime
     working_dir: /home/rapids
+    command: jupyter lab
