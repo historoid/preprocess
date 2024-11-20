@@ -20,4 +20,3 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - JUPYTER_RUNTIME_DIR=/home/rapids/mydata/.jupyter_runtime
     working_dir: /home/rapids
-    command: jupyter lab
