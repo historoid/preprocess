@@ -33,3 +33,15 @@ miniforgeで利用しやすいように、environment.ymlファイルに諸々�
 
 Windows板では、WSL2 + Docker を利用して開発環境を管理します。  
 NVIDIAが公開しているコンテナを利用します。
+
+## macOSバージョン（dev/macブランチ）について
+
+このブランチでは、M3 Macを使った開発を記録します。
+
+Apple SiliconでGPUを利用するには、Metal APIを介する必要があるため、Dockerは利用できません。  
+そこでcondaでの環境管理を行います。
+
+### JupyterLabについて
+
+実際の開発はJupyterLabを介して行います。  
+jupyterでもcondaの仮想環境を認識するように設定を行ってください。
