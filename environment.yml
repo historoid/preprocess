@@ -1,0 +1,28 @@
+name: ml_env  # 仮想環境の名前
+channels:
+  - conda-forge  # 最新のライブラリを優先的に取得
+  - defaults
+dependencies:
+  - python=3.10  # Apple Siliconでの互換性を考慮し、安定したバージョンを選択
+  - numpy  # 数値計算ライブラリ
+  - pandas  # データ処理ライブラリ
+  - polars  # 高速データ処理ライブラリ
+  - dask  # 並列データ処理
+  - scikit-learn  # 機械学習ライブラリ
+  - xgboost  # 勾配ブースティング
+  - lightgbm  # 勾配ブースティング（軽量版）
+  - matplotlib  # グラフ描画
+  - seaborn  # データビジュアライゼーション
+  - jupyterlab  # インタラクティブなノートブック環境
+  - plotly  # 対話型データビジュアライゼーション
+  - modin  # Pandas互換の並列データフレーム処理
+  - pyarrow  # 高速なデータフォーマット変換
+  - scipy  # 科学計算ライブラリ
+  - pip  # pipを利用可能にする
+  - pip:
+      - tensorflow-macos  # TensorFlowのApple Silicon向けバージョン
+      - tensorflow-metal  # MetalプラグインでGPUアクセラレーション
+      - torch  # PyTorch
+      - torchvision  # PyTorchの画像関連ライブラリ
+      - torchaudio  # PyTorchの音声関連ライブラリ
+      - ipykernel  # Jupyterに仮想環境を加える
