@@ -19,6 +19,7 @@ mydata/
 *.tga
 *.DAT
 *.tif
+*.pspimage
 
 # ドキュメントファイルを無視
 *.pdf
