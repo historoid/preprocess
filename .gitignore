@@ -1,3 +1,6 @@
+# 特定のファイル
+patients_candidates.parquet
+
 # 画像ファイルを無視
 *.jpg
 *.jpeg
