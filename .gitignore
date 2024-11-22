@@ -1,3 +1,10 @@
+# 特定のファイル
+patients_candidates.parquet
+exceptions.parquet
+
+# 特定のフォルダ
+mydata/
+
 # 画像ファイルを無視
 *.jpg
 *.jpeg
@@ -6,6 +13,13 @@
 *.bmp
 *.tiff
 *.svg
+*.db
+*.ai
+*.CR2
+*.tga
+*.DAT
+*.tif
+*.pspimage
 
 # ドキュメントファイルを無視
 *.pdf
@@ -28,6 +42,7 @@ Thumbs.db
 *.bin
 *.o
 *.obj
+*.ini
 
 # 圧縮ファイルを無視
 *.zip
@@ -64,3 +79,4 @@ dist/
 build/
 target/
 out/
+**/.ipynb_checkpoints
