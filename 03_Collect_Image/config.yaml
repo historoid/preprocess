@@ -1,3 +1,6 @@
+# データセットの設定ファイル
+dataset_root: '../mydata/00_working'
+
 primary_folders:
   - '../mydata/00_working/2022-05-02'
   - '../mydata/00_working/ForensicMedicine'
@@ -17,19 +20,11 @@ secondary_folders:
   - '../mydata/00_working/総合診療部/ら行'
   - '../mydata/00_working/総合診療部/わ行'
 
-ignore_extensions:
-  - '.tmp'
-  - '.log'
-  - '.ini'
-  - '.db'
-  - '.txt'
-  - '.text'
-  - '.exe'
-  - '.dll'
-  - '.o'
-  - '.obj'
-  - '.swp'
-  - '.bin'
-
-ignore_files:
-  - '.DS_Store'
+target_extensions:
+  - '.cr2'
+  - '.jpg'
+  - '.png'
+  - '.jpeg'
+  - '.tga'
+  - '.tif'
+  - '.tiff'

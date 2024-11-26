@@ -30,6 +30,14 @@ ignore_extensions:
   - '.obj'
   - '.swp'
   - '.bin'
+  - '.cr2'
+  - '.ai'
+  - '.dat'
+  - '.json'
+  - '.key'
+  - '.pdf'
+  - '.pspimage'
+  - '.xlsm'
 
 ignore_files:
   - '.DS_Store'

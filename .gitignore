@@ -1,6 +1,14 @@
 # 特定のファイル
 patients_candidates.parquet
 exceptions.parquet
+patients_dirs.parquet
+failed_files.txt
+error_files.txt
+00_all_images.parquet
+01_add_metadata.parquet
+02_processed_dataframe.parquet
+03_processed_dataframe_with_too_small.parquet
+images.parquet
 
 # 特定のフォルダ
 mydata/
