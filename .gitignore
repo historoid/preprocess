@@ -9,6 +9,7 @@ error_files.txt
 02_processed_dataframe.parquet
 03_processed_dataframe_with_too_small.parquet
 images.parquet
+01_General_Oral.parquet
 
 # 特定のフォルダ
 mydata/

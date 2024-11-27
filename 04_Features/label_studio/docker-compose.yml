@@ -1,0 +1,13 @@
+services:
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: oral_general
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mydata:/label-studio/data
+      - ./myfiles:/label-studio/files
+    environment:
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/files
+    command: label-studio
