@@ -1,7 +1,7 @@
 services:
   label-studio:
     image: heartexlabs/label-studio:latest
-    container_name: oral_general
+    container_name: oral_generald
     ports:
       - "8080:8080"
     volumes:
