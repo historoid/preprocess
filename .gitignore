@@ -89,3 +89,6 @@ build/
 target/
 out/
 **/.ipynb_checkpoints
+
+# 一覧表を除外
+*.parquet
