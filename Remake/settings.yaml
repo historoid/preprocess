@@ -1,0 +1,59 @@
+# The path is a relative path from this YAML file.
+
+# root directory of the dataset
+root_dir: '../mydata/00_original'
+
+# backup dir
+backup_dir: '../mydata/copy'
+
+# working dir
+working_dir: '../mydata/working'
+
+# root directory of each patient
+patient_root:
+  - '2022-05-02'
+  - 'ForensicMedicine'
+  - '総合診療部/あ行'
+  - '総合診療部/か行'
+  - '総合診療部/さ行'
+  - '総合診療部/た行'
+  - '総合診療部/な行'
+  - '総合診療部/は行'
+  - '総合診療部/ま行'
+  - '総合診療部/や行'
+  - '総合診療部/ら行'
+  - '総合診療部/わ行'
+
+# extensions of images that OpenCV/ Pillow can load
+image_ext:
+  - '.cr2'
+  - '.jpg'
+  - '.jpeg'
+  - '.png'
+  - '.bmp'
+  - '.dib'
+  - '.gif'
+  - '.ico'
+  - '.pcx'
+  - '.tga'
+  - '.dds'
+  - '.webp'
+  - '.ppm'
+  - '.pgm'
+  - '.pbm'
+  - '.ras'
+  - '.hdr'
+  - '.pic'
+  - '.jp2'
+  - '.tga'
+  - '.tif'
+  - '.tiff'
+
+# extensions of documents that can convert to images
+office_ext:
+  - '.doc'
+  - '.docx'
+  - '.xls'
+  - '.xlsx'
+  - '.ppt'
+  - '.pptx'
