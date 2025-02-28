@@ -1,5 +1,5 @@
 import os
-import stat
+# import stat
 import yaml
 import uuid
 import shutil
@@ -240,42 +240,29 @@ def remove_empty_directories(root_dir: str) -> Tuple[List[str], List[Tuple[str, 
     return removed_dirs, error_dirs # 戻り値を返す
 
 
-def remove_unnecessary_data(root_dir: str) -> None:
+def remove_unnecessary_data(root_dir: str, unwanted_file_names: Set[str]) -> None:
     """
     Removes unwanted files and empty directories.
+
+    Args:
+        root_dir (str): The root directory to process.
+        unwanted_file_names (Set[str]): Set of filenames to remove.
     """
-    unwanted_file_names = {
-        ".DS_Store",
-        "Thumbs.db",
-        "desktop.ini",
-        "ehthumbs.db",
-        "ehthumbs_vista.db",
-        "$RECYCLE.BIN",
-        ".Trash",
-        ".localized",
-        ".thumbnails"
-    } #削除したいファイル名
-
     console.print(
-      Panel(
-        f"[bold cyan]Begin the Cleaning: [white]{root_dir}",
-        title="[bold]Cleaning Process",
-        subtitle="Deletion of unnecessary files or directories",
+        Panel(
+            f"[bold cyan]Begin the Cleaning: [white]{root_dir}",
+            title="[bold]Cleaning Process",
+            subtitle="Deletion of unnecessary files or directories",
+        )
     )
-    )
-
     # Step 1: Remove unwanted files
     console.print("[bold blue]STEP 1: Deleting unnecessary files...")
-    removed_files, error_files = remove_unwanted_files(root_dir, unwanted_file_names) # 変更
-
+    removed_files, error_files = remove_unwanted_files(root_dir, unwanted_file_names)
     # Step 2: Remove empty directories
     console.print("[bold blue]STEP 2: Deleting empty directories...")
-    removed_dirs, error_dirs = remove_empty_directories(root_dir) #変更
-
+    removed_dirs, error_dirs = remove_empty_directories(root_dir)
     # エラー出力
     _print_errors(error_files, error_dirs, console)
-
-
     console.print(
         Panel(
             "[bold green]CLEAN UP DONE",
@@ -301,180 +288,230 @@ def _print_errors(error_files, error_dirs, console):
         console.print("[bold green]No errors occurred during the cleanup process.[/]")
 
 
-
-def remove_spaces_in_names(root_dir: str) -> None:
+def normalize_and_remove_spaces(name: str) -> str:
     """
-    Removes spaces (both half-width and full-width) from file and directory names
-    within the specified root directory, only if spaces are present. Resolves name
-    conflicts by appending a number.
+    Normalizes a file/directory name:
+      - Converts full-width to half-width.
+      - Removes spaces (both half-width and full-width).
 
-    Parameters:
-        root_dir (str): The root directory to process.
-    """
-    assert isinstance(root_dir, str), "The root directory path must be a string."
-    if not os.path.exists(root_dir):
-        raise FileNotFoundError(f"The specified directory '{root_dir}' does not exist.")
-    
-    # Walk through the directory structure, bottom-up to handle nested directories
-    for root, dirs, files in os.walk(root_dir, topdown=False):
-        # Rename files
-        for file_name in files:
-            if " " in file_name or "　" in file_name:  # Only process if spaces are present
-                old_path = os.path.join(root, file_name)
-                new_name = file_name.replace(" ", "").replace("　", "")  # Remove spaces
-                new_path = os.path.join(root, new_name)
-                
-                # Resolve conflicts by appending a number
-                count = 1
-                while os.path.exists(new_path):
-                    name, ext = os.path.splitext(new_name)
-                    new_path = os.path.join(root, f"{name}({count}){ext}")
-                    count += 1
-                
-                # Rename the file
-                if old_path != new_path:
-                    os.rename(old_path, new_path)
-                    print(f"Renamed file: '{old_path}' -> '{new_path}'")
-        
-        # Rename directories
-        for dir_name in dirs:
-            if " " in dir_name or "　" in dir_name:  # Only process if spaces are present
-                old_path = os.path.join(root, dir_name)
-                new_name = dir_name.replace(" ", "").replace("　", "")  # Remove spaces
-                new_path = os.path.join(root, new_name)
-                
-                # Resolve conflicts by appending a number
-                count = 1
-                while os.path.exists(new_path):
-                    new_path = os.path.join(root, f"{new_name}({count})")
-                    count += 1
-                
-                # Rename the directory
-                if old_path != new_path:
-                    os.rename(old_path, new_path)
-                    print(f"Renamed directory: '{old_path}' -> '{new_path}'")
+    Args:
+        name: The original file/directory name.
 
-    print("Space removal and renaming complete.")
-
-
-
-def to_half_width(text: str) -> str:
-    """
-    Converts full-width alphanumeric characters and symbols to half-width.
-    
-    Parameters:
-        text (str): The input string to convert.
-    
     Returns:
-        str: The converted string with half-width characters.
+        The normalized name.
     """
-    return unicodedata.normalize('NFKC', text)
+    normalized_name = unicodedata.normalize("NFKC", name)  # 全角を半角に
+    normalized_name = normalized_name.replace(" ", "").replace("　", "")  # スペース除去
+    return normalized_name
 
-def rename_to_half_width(root_dir: str) -> None:
+
+def generate_unique_filename(root: str, new_name: str) -> str:
     """
-    Renames all files and directories within the specified root directory,
-    converting full-width alphanumeric characters and symbols to half-width.
-    Resolves name conflicts by appending a number (e.g., (1), (2)).
-    
-    Parameters:
-        root_dir (str): The root directory to process.
+    Generates a unique filename by appending a counter if necessary.
+    Only appends counter if there's name conflict
+
+    Args:
+        root: The directory where the file/directory will be renamed.
+        new_name: The desired new name (without path).
+    Returns:
+        A unique filename.
     """
-    assert isinstance(root_dir, str), "The root directory path must be a string."
-    if not os.path.exists(root_dir):
-        raise FileNotFoundError(f"The specified directory '{root_dir}' does not exist.")
-    
-    # Rename files first to avoid downstream path issues
-    for root, dirs, files in os.walk(root_dir, topdown=False):  # Bottom-up to handle nested directories
-        # Rename files
-        for file_name in files:
-            old_path = os.path.join(root, file_name)
-            new_name = to_half_width(file_name)
-            if old_path != os.path.join(root, new_name):  # Only rename if conversion changes the name
-                new_path = os.path.join(root, new_name)
-                
-                # Resolve conflicts
-                count = 1
-                while os.path.exists(new_path):
-                    name, ext = os.path.splitext(new_name)
-                    new_path = os.path.join(root, f"{name}({count}){ext}")
-                    count += 1
-                
-                os.rename(old_path, new_path)
-                print(f"Renamed file: '{old_path}' -> '{new_path}'")
-        
-        # Rename directories
-        for dir_name in dirs:
-            old_path = os.path.join(root, dir_name)
-            new_name = to_half_width(dir_name)
-            if old_path != os.path.join(root, new_name):  # Only rename if conversion changes the name
-                new_path = os.path.join(root, new_name)
-                
-                # Resolve conflicts
-                count = 1
-                while os.path.exists(new_path):
-                    new_path = os.path.join(root, f"{new_name}({count})")
-                    count += 1
-                
-                os.rename(old_path, new_path)
-                print(f"Renamed directory: '{old_path}' -> '{new_path}'")
-    
-    print("Full-width to half-width renaming complete.")
+
+    base, ext = os.path.splitext(new_name)
+    counter = 1
+    unique_name = new_name
+    while os.path.exists(os.path.join(root, unique_name)):
+        unique_name = f"{base}({counter}){ext}"
+        counter += 1
+    return unique_name
 
 
-
-def organize_office_files(root_folders: list) -> None:
+def rename_and_normalize(root_dir: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     """
-    Organizes standalone office files in the root folders by moving them into
-    newly created folders with the same name as the file.
+    Recursively renames files/directories under root_dir, normalizing names.
 
-    Parameters:
-        root_folders (list): A list of root folder paths to process.
+    Args:
+        root_dir: The root directory to process.
 
-    Supported extensions: .doc, .docx, .xls, .xlsx, .ppt, .pptx
+    Returns:
+      Tuple: (renamed_entries, error_entries)
+          renamed_entries: List of (old_path, new_path) tuples.
+          error_entries: List of (path, error_message) tuples.
     """
-    assert isinstance(root_folders, list), "root_folders must be a list of folder paths."
-    supported_extensions = {".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"}
+    renamed_entries: List[Tuple[str, str]] = []
+    error_entries: List[Tuple[str, str]] = []
 
-    for root_folder in root_folders:
-        if not os.path.exists(root_folder):
-            print(f"Skipping non-existent folder: {root_folder}")
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        total_files = sum(len(files) for _, _, files in os.walk(root_dir))
+        total_dirs = sum(len(dirs) for _, dirs, _ in os.walk(root_dir))
+        total_items = total_files + total_dirs
+        task = progress.add_task("[cyan]Renaming...", total=total_items)
+
+        for root, dirs, files in os.walk(root_dir, topdown=False):
+            # Rename files first
+            for file_name in files:
+                old_path = os.path.join(root, file_name)
+                normalized_name = normalize_and_remove_spaces(file_name)
+
+                # 変更がある場合のみ処理
+                if normalized_name != file_name:
+                    new_name = generate_unique_filename(root, normalized_name) # 重複回避
+                    new_path = os.path.join(root, new_name)
+                    try:
+                        shutil.move(old_path, new_path)
+                        renamed_entries.append((old_path, new_path))
+                        # コンソールにリネーム情報を表示
+                        console.print(f"[green]Renamed file:[/green] {old_path} -> {new_path}")
+                        progress.update(task, advance=1, description=f"[green]Renamed File[/]: {new_name}")
+
+                    except Exception as e:
+                        error_entries.append((old_path, str(e)))
+                        progress.update(task, advance=1, description=f"[red]Error File[/]:{file_name}")
+                else:
+                    progress.update(task, advance=1)
+
+            # Then rename directories
+            for dir_name in dirs:
+                old_path = os.path.join(root, dir_name)
+                normalized_name = normalize_and_remove_spaces(dir_name)
+
+                # 変更がある場合のみ
+                if normalized_name != dir_name:
+                    new_name = generate_unique_filename(root, normalized_name) # 重複回避
+                    new_path = os.path.join(root, new_name)
+
+                    try:
+                        shutil.move(old_path, new_path)
+                        renamed_entries.append((old_path, new_path))
+                        # コンソールにリネーム情報を表示
+                        console.print(f"[green]Renamed dir:[/green] {old_path} -> {new_path}")
+                        progress.update(task, advance=1, description=f"[green]Renamed Dir[/]: {new_name}")
+
+                    except Exception as e:
+                        error_entries.append((old_path, str(e)))
+                        progress.update(task, advance=1, description=f"[red]Error Dir[/]: {dir_name}")
+                else:
+                    progress.update(task, advance=1)
+
+    return renamed_entries, error_entries
+
+
+def organize_standalone_files(target_dir: str, allowed_extensions: Set[str] = None) -> Tuple[List[str], List[Tuple[str, str]]]:
+    """
+    Organizes standalone files in the target_dir.  Creates a directory
+    with the same name as each file (without extension) and moves the file
+    into that directory.  Handles name collisions by appending a counter.
+
+    Args:
+        target_dir: The directory to process.
+        allowed_extensions:  Optional set of extensions to process. If None,
+            process all files.
+
+    Returns:
+        Tuple: (moved_files, error_files)
+            moved_files: List of paths to moved files.
+            error_files: List of (file_path, error_message) tuples.
+
+    """
+    if not os.path.exists(target_dir):
+        raise FileNotFoundError(f"Target directory '{target_dir}' not found.")
+
+    moved_files: List[str] = []
+    error_files: List[Tuple[str, str]] = []
+
+    for item_name in os.listdir(target_dir):
+        item_path = os.path.join(target_dir, item_name)
+
+        if not os.path.isfile(item_path):
             continue
 
-        print(f"Processing folder: {root_folder}")
+        base_name, ext = os.path.splitext(item_name)
 
-        # List all files in the root folder
-        for item in os.listdir(root_folder):
-            item_path = os.path.join(root_folder, item)
+        if allowed_extensions and ext.lower() not in allowed_extensions:
+            continue
 
-            # Skip directories
-            if os.path.isdir(item_path):
-                continue
+        new_dir_name = base_name
+        new_dir_path = os.path.join(target_dir, new_dir_name)
 
-            # Check file extension
-            _, ext = os.path.splitext(item)
-            if ext.lower() not in supported_extensions:
-                continue
+        counter = 1
+        while os.path.exists(new_dir_path):
+            new_dir_name = f"{base_name}_{counter}"
+            new_dir_path = os.path.join(target_dir, new_dir_name)
+            counter += 1
 
-            # Create a new folder with the same name as the file (excluding extension)
-            folder_name = os.path.splitext(item)[0]
-            new_folder_path = os.path.join(root_folder, folder_name)
+        try:
+            os.makedirs(new_dir_path)
+            console.print(f"Created directory: {new_dir_path}") # 確認用
 
-            # Handle name conflicts
-            count = 1
-            while os.path.exists(new_folder_path):
-                new_folder_path = os.path.join(root_folder, f"{folder_name}({count})")
-                count += 1
-
-            # Create the new folder
-            os.makedirs(new_folder_path)
-            print(f"Created folder: {new_folder_path}")
-
-            # Move the file into the newly created folder
-            new_file_path = os.path.join(new_folder_path, item)
+            new_file_path = os.path.join(new_dir_path, item_name)
             shutil.move(item_path, new_file_path)
-            print(f"Moved file: '{item_path}' -> '{new_file_path}'")
+            moved_files.append(new_file_path)
+            console.print(f"Moved file: {item_path} -> {new_file_path}") # 確認用
 
-    print("Office file organization complete.")
+        except Exception as e:
+            error_files.append((item_path, str(e)))
+
+    return moved_files, error_files
+
+
+
+def organize_patient_data(root_dir: str, patient_root_paths: List[str], allowed_extensions: Set[str] = None) -> None:
+    """
+    Organizes standalone files within patient root directories.
+
+    Args:
+        root_dir:  The main root directory (e.g., "mydata/01_copy").
+        patient_root_paths: List of relative paths to patient root directories
+                           (from settings.yaml).
+        allowed_extensions: Optional set of file extensions to process.
+    """
+
+    console.print(Panel("[bold blue]Organizing standalone files...[/]"))
+    all_moved_files = []
+    all_error_files = []
+
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+
+        task = progress.add_task("[cyan]Processing...", total=len(patient_root_paths))
+        for patient_root_rel_path in patient_root_paths:
+            patient_root_abs_path = os.path.join(root_dir, patient_root_rel_path)
+            # 存在しない、またはディレクトリでない場合はスキップ
+            if not os.path.exists(patient_root_abs_path) or not os.path.isdir(patient_root_abs_path):
+                console.print(f"[yellow]Skipping (not a directory or not found): {patient_root_rel_path}[/]")
+                progress.update(task, advance=1)  # Progress は進める
+                continue
+
+            progress.update(task, description=f"[cyan]Processing[/]: {patient_root_rel_path}")
+            try:
+                moved_files, error_files = organize_standalone_files(patient_root_abs_path, allowed_extensions)
+                all_moved_files.extend(moved_files)
+                all_error_files.extend(error_files)
+            except Exception as e:
+                console.print(f"[red]Error processing {patient_root_rel_path}: {e}[/]")
+                # 全体としてのエラーリストに追加など、必要に応じて処理
+            progress.update(task, advance=1)
+            
+    if all_moved_files:
+        console.print(Panel(f"[green]Moved {len(all_moved_files)} files.[/]", title="[bold]Files Moved"))
+
+    if all_error_files:
+        console.print(Panel("[red]Errors occurred during file organization.[/]", title="[bold red]Errors"))
+        for file_path, error_msg in all_error_files:
+            console.print(f"[red]- {file_path}:[/] {error_msg}")
+    elif not all_moved_files: # 移動対象のファイルもエラーもなかった場合
+        console.print(Panel("[yellow]No standalone files found to organize.[/]"))
 
 
 
