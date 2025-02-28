@@ -4,7 +4,7 @@
 root_dir: '../mydata/00_original'
 
 # backup dir
-backup_dir: '../mydata/copy'
+backup_dir: '../mydata/01_copy'
 
 # working dir
 working_dir: '../mydata/working'
