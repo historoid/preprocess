@@ -1,6 +1,7 @@
 import os
-import uuid
+import stat
 import yaml
+import uuid
 import shutil
 import unicodedata
 import pandas as pd
@@ -9,7 +10,7 @@ from rich import box
 from rich.table import Table
 from rich.panel import Panel
 from rich.console import Console
-from typing import Union, Dict, Set, List
+from typing import Union, Dict, Set, List, Tuple
 from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
 
@@ -20,24 +21,19 @@ console = Console()
 def load_settings(yaml_path: str) -> Dict:
     """
     Load settings from a YAML file and define global variables for each key-value pair.
-    
     Args:
         yaml_path (str): Path to the YAML file.
-
     Returns:
         dict: The settings loaded from the YAML file.
     """
     # パスの型チェック
     assert isinstance(yaml_path, str), "YAML path must be a string."
-    
     # ファイル存在確認
     if not os.path.exists(yaml_path):
         raise FileNotFoundError(f"Settings file '{yaml_path}' does not exist.")
-    
     # YAMLファイルを読み込む
     with open(yaml_path, 'r', encoding='utf-8') as file:
         settings = yaml.safe_load(file)
-    
     return settings
 
 
@@ -50,56 +46,31 @@ def get_file_size_str(file_path):
         size_bytes /= 1024.0
 
 
-def copy_directory_with_metadata(src: str, dst: str, overwrite: bool=False) -> None:
+def copy_directory_with_metadata(src: str, dst: str, overwrite: bool = False) -> None:
     """
-    Copies all contents of the source directory to the destination directory,
-    preserving metadata (e.g., timestamps). Supports optional overwriting of the destination.
-
-    Args:
-        src (str): Path to the source directory.
-        dst (str): Path to the destination directory.
-        overwrite (bool): Whether to overwrite the destination directory if it already exists.
-                          Default is False (do not overwrite).
-
-    Raises:
-        FileNotFoundError: If the source directory does not exist.
-        FileExistsError: If the destination directory already exists and overwrite is False.
+    Copies all contents of source directory to destination, preserving metadata.
     """
-    # 型チェック
-    assert isinstance(src, str) and isinstance(dst, str), "Source and destination paths must be strings."
-    assert isinstance(overwrite, bool), "The 'overwrite' parameter must be a boolean."
-    
-    # ソースディレクトリの存在確認
+    assert isinstance(src, str) and isinstance(dst, str), "Source/destination must be strings."
+    assert isinstance(overwrite, bool), "'overwrite' parameter must be a boolean."
+
     if not os.path.exists(src):
         raise FileNotFoundError(f"Source directory '{src}' does not exist.")
-    
-    # 目的ディレクトリの処理
+
     if os.path.exists(dst):
         if overwrite:
-            # 既存のフォルダを削除して上書き
             shutil.rmtree(dst)
-            print(f"Existing destination '{dst}' has been removed for overwriting.")
+            print(f"Existing destination '{dst}' removed for overwriting.")
         else:
-            raise FileExistsError(f"Destination directory '{dst}' already exists. Use 'overwrite=True' to overwrite.")
+            raise FileExistsError(f"Destination '{dst}' exists. Use 'overwrite=True'.")
 
-    # ルートディレクトリの作成
     os.makedirs(dst, exist_ok=True)
 
-    # ディレクトリの走査とコピー
     for root, dirs, files in os.walk(src):
-        # 現在のルートの相対パスを計算
         relative_path = os.path.relpath(root, src)
         dst_root = os.path.join(dst, relative_path)
-        
-        # ディレクトリのコピー
+
         for dir_name in dirs:
             os.makedirs(os.path.join(dst_root, dir_name), exist_ok=True)
-        
-        # # ファイルのコピー
-        # for file_name in files:
-        #     src_file = os.path.join(root, file_name)
-        #     dst_file = os.path.join(dst_root, file_name)
-        #     shutil.copy2(src_file, dst_file)
 
         with Progress(
             TextColumn("[bold blue]{task.description}"),
@@ -108,276 +79,226 @@ def copy_directory_with_metadata(src: str, dst: str, overwrite: bool=False) -> N
             TimeRemainingColumn()
         ) as progress:
             task = progress.add_task("[green]Copying a file...", total=len(files))
-            
+
             for file_name in files:
                 src_file = os.path.join(root, file_name)
                 dst_file = os.path.join(dst_root, file_name)
-                # ファイルサイズを取得
                 file_size = get_file_size_str(src_file)
-                # 現在処理中のファイル名とサイズを表示
                 progress.update(
-                    task, 
-                    description=f"[green]コピー中: [bold white]{file_name} [yellow]({file_size})"
+                    task,
+                    description=f"[green]Copy: [bold white]{file_name} [yellow]({file_size})"
                 )
-                # ファイルをコピー
                 shutil.copy2(src_file, dst_file)
-                # 進捗を更新
                 progress.update(task, advance=1)
-    print(f"Directory '{src}' successfully copied to '{dst}' with overwrite={overwrite}.")
+    print(f"Directory '{src}' copied to '{dst}' with overwrite={overwrite}.")
 
 
-
-# def remove_unwanted_files(root_dir: str, allowed_extensions: Set[str]) -> None:
-#     """
-#     Removes files that do not have one of the allowed extensions from the specified root directory.
-#     Includes hidden and system files such as .DS_Store and thumbnails.
-
-#     Parameters:
-#         root_dir (str): The root directory to process.
-#         allowed_extensions (set): A set of allowed file extensions (e.g., {".jpg", ".png"}).
-#     """
-#     assert isinstance(root_dir, str), "root_dir must be a string."
-#     assert isinstance(allowed_extensions, set), "allowed_extensions must be a set."
-    
-#     removed_files = []
-    
-#     for root, _, files in os.walk(root_dir):
-#         for file_name in files:
-#             file_path = os.path.join(root, file_name)
-#             _, ext = os.path.splitext(file_name)
-#             if ext.lower() not in allowed_extensions:
-#                 try:
-#                     os.remove(file_path)
-#                     removed_files.append(file_path)
-#                 except Exception as e:
-#                     print(f"Error removing file {file_path}: {e}")
-    
-#     # Print summary
-#     print(f"Removed {len(removed_files)} unwanted files:")
-#     for file in removed_files:
-#         print(file)
-
-
-def remove_unwanted_files(root_dir: str, allowed_extensions: Set[str]) -> None:
+def remove_unwanted_files(root_dir: str, unwanted_files: Set[str]) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
-    Removes files that do not have one of the allowed extensions from the specified root directory.
-    Includes hidden and system files such as .DS_Store and thumbnails.
+    Removes specific unwanted files (like .DS_Store, Thumbs.db) from the specified root directory.
 
-    Parameters:
+    Args:
         root_dir (str): The root directory to process.
-        allowed_extensions (set): A set of allowed file extensions (e.g., {".jpg", ".png"}).
+        unwanted_files (Set[str]): A set of *filenames* (not extensions) to remove.  e.g., {".DS_Store", "Thumbs.db"}
+
+    Returns:
+        Tuple[List[str], List[Tuple[str, str]]]: (removed_files, error_files)
+            removed_files: List of paths to removed files.
+            error_files: List of (file_path, error_message) tuples.
+
     """
     assert isinstance(root_dir, str), "root_dir must be a string."
-    assert isinstance(allowed_extensions, set), "allowed_extensions must be a set."
-    
-    removed_files = []
-    error_files = []
-    
-    # まず削除対象のファイルをリストアップ
-    files_to_remove = []
+    assert isinstance(unwanted_files, set), "unwanted_files must be a set."
+
+    removed_files: List[str] = []
+    error_files: List[Tuple[str, str]] = []
+
     for root, _, files in os.walk(root_dir):
         for file_name in files:
-            file_path = os.path.join(root, file_name)
-            _, ext = os.path.splitext(file_name)
-            if ext.lower() not in allowed_extensions:
-                files_to_remove.append(file_path)
-    
-    # 削除処理をプログレスバー付きで実行
-    with Progress(
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeRemainingColumn()
-    ) as progress:
-        task = progress.add_task("[red]Deleting an unnecessary file...", total=len(files_to_remove))
-        
-        for file_path in files_to_remove:
-            # 現在処理中のファイル名を表示
-            file_name = os.path.basename(file_path)
-            progress.update(task, description=f"[red]Deleting: [bold white]{file_name}")
-            
+            if file_name in unwanted_files:  # ファイル名で判定
+                file_path = os.path.join(root, file_name)
+                try:
+                    os.remove(file_path)
+                    removed_files.append(file_path)
+                except Exception as e:
+                    error_files.append((file_path, str(e)))
+
+    # (Progress, Table 表示は省略.  必要に応じて追加してください)
+
+    return removed_files, error_files
+
+
+
+def is_empty_dir(dir_path: str) -> bool:
+    """Checks if a directory is empty, considering hidden files and directories."""
+    for entry in os.scandir(dir_path):
+        if entry.name in ('.', '..'):
+            continue
+
+        if entry.is_symlink():
             try:
-                os.remove(file_path)
-                removed_files.append(file_path)
-            except Exception as e:
-                error_files.append((file_path, str(e)))
-            
-            progress.update(task, advance=1)
-    
-    # 削除結果のサマリーをテーブルで表示
-    if removed_files:
-        table = Table(title="Deleted Files", box=box.ROUNDED)
-        table.add_column("No.", style="cyan")
-        table.add_column("File path", style="green")
-        
-        for i, file_path in enumerate(removed_files, 1):
-            table.add_row(str(i), file_path)
-        
-        console.print(Panel(table, title="[bold green]Complete deletion", subtitle=f"Total: {len(removed_files)}files"))
-    else:
-        console.print("[yellow]There were NO files to delete.")
-    
-    # エラーがあれば表示
-    if error_files:
-        error_table = Table(title="Error Files", box=box.ROUNDED)
-        error_table.add_column("No.", style="cyan")
-        error_table.add_column("File path", style="red")
-        error_table.add_column("Error Message", style="yellow")
-        
-        for i, (file_path, error) in enumerate(error_files, 1):
-            error_table.add_row(str(i), file_path, error)
-        
-        console.print(Panel(error_table, title="[bold red]Error", subtitle=f"合計: {len(error_files)}件"))
+                if not os.path.exists(entry.path):
+                    continue
+            except OSError:
+                continue
+
+        return False
+    return True
 
 
-# def remove_empty_directories(root_dir: str) -> None:
-#     """
-#     Recursively removes empty directories from the specified root directory.
-
-#     Parameters:
-#         root_dir (str): The root directory to process.
-#     """
-#     assert isinstance(root_dir, str), "root_dir must be a string."
-    
-#     removed_dirs = []
-    
-#     for root, dirs, _ in os.walk(root_dir, topdown=False):  # Start from the bottom of the tree
-#         for dir_name in dirs:
-#             dir_path = os.path.join(root, dir_name)
-#             if not os.listdir(dir_path):  # If the directory is empty
-#                 try:
-#                     os.rmdir(dir_path)
-#                     removed_dirs.append(dir_path)
-#                 except Exception as e:
-#                     print(f"Error removing directory {dir_path}: {e}")
-    
-#     # Print summary
-#     print(f"Removed {len(removed_dirs)} empty directories:")
-#     for dir_path in removed_dirs:
-#         print(dir_path)
-
-def remove_empty_directories(root_dir: str) -> None:
+def remove_empty_directories(root_dir: str) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
     Recursively removes empty directories from the specified root directory.
 
     Parameters:
         root_dir (str): The root directory to process.
+    Returns:
+        Tuple[List[str], List[Tuple[str, str]]]: (removed_dirs, error_dirs)
+            removed_dirs: List of paths to removed directories
+            error_dirs: List of (dir_path, error_message) tuples
+
     """
     assert isinstance(root_dir, str), "root_dir must be a string."
-    
-    removed_dirs = []
-    error_dirs = []
-    
-    # 最初に空ディレクトリを探す（複数回走査する必要がある）
+
+    removed_dirs: List[str] = []
+    error_dirs: List[Tuple[str, str]] = []
+
     with console.status("[bold blue]Searching empty dir...") as status:
         iteration = 1
         while True:
-            found_empty_dirs = []
-            
+            found_empty_dirs: List[str] = []
+
             for root, dirs, _ in os.walk(root_dir, topdown=False):
                 for dir_name in dirs:
                     dir_path = os.path.join(root, dir_name)
-                    if not os.listdir(dir_path):  # ディレクトリが空かチェック
+                    if is_empty_dir(dir_path):
                         found_empty_dirs.append(dir_path)
-            
+
             if not found_empty_dirs:
-                break  # 空ディレクトリがなければ終了
-            
+                status.update("[bold green]No more empty directories found.")
+                break
+
             status.update(f"[bold blue]空のディレクトリを検索中... (iteration {iteration})")
-            
-            # 空ディレクトリを削除
+
             with Progress(
                 TextColumn("[bold blue]{task.description}"),
                 BarColumn(),
-                TaskProgressColumn()
+                TaskProgressColumn(),
             ) as progress:
-                task = progress.add_task("[yellow]Deleting an empty directory...", total=len(found_empty_dirs))
-                
+                task = progress.add_task(
+                    "[yellow]Deleting an empty directory...", total=len(found_empty_dirs)
+                )
+
                 for dir_path in found_empty_dirs:
                     dir_name = os.path.basename(dir_path)
-                    progress.update(task, description=f"[yellow]Deleting: [bold white]{dir_name}")
-                    
+                    progress.update(
+                        task, description=f"[yellow]Deleting: [bold white]{dir_name}"
+                    )
+
                     try:
                         os.rmdir(dir_path)
                         removed_dirs.append(dir_path)
                     except Exception as e:
                         error_dirs.append((dir_path, str(e)))
-                    
+
                     progress.update(task, advance=1)
-            
+
             iteration += 1
-    
-    # 削除結果のサマリーをテーブルで表示
+
     if removed_dirs:
         table = Table(title="Deleted Directories", box=box.ROUNDED)
         table.add_column("No.", style="cyan")
         table.add_column("Directory path", style="green")
-        
+
         for i, dir_path in enumerate(removed_dirs, 1):
             table.add_row(str(i), dir_path)
-        
-        console.print(Panel(table, title="[bold green]Complete Deletion", subtitle=f"合計: {len(removed_dirs)}ディレクトリ"))
+
+        console.print(
+            Panel(
+                table,
+                title="[bold green]Complete Deletion",
+                subtitle=f"合計: {len(removed_dirs)}ディレクトリ",
+            )
+        )
     else:
         console.print("[yellow]There were NO directories to delete")
-    
-    # エラーがあれば表示
+
     if error_dirs:
         error_table = Table(title="Directory with Errors", box=box.ROUNDED)
         error_table.add_column("No.", style="cyan")
         error_table.add_column("Directory path", style="red")
         error_table.add_column("Error Message", style="yellow")
-        
+
         for i, (dir_path, error) in enumerate(error_dirs, 1):
             error_table.add_row(str(i), dir_path, error)
-        
-        console.print(Panel(error_table, title="[bold red]Error", subtitle=f"Total: {len(error_dirs)}directories"))
+
+        console.print(
+            Panel(
+                error_table, title="[bold red]Error", subtitle=f"Total: {len(error_dirs)}directories"
+            )
+        )
+    return removed_dirs, error_dirs # 戻り値を返す
 
 
-# def remove_unnecessary_data(root_dir: str, allowed_extensions: Set[str]) -> None:
-#     """
-#     Removes unwanted files and empty directories from the specified root directory.
-
-#     Parameters:
-#         root_dir (str): The root directory to process.
-#         allowed_extensions (set): A set of allowed file extensions (e.g., {".jpg", ".png"}).
-#     """
-#     print(f"Starting cleanup in: {root_dir}")
-    
-#     # Step 1: Remove unwanted files
-#     print("Removing unwanted files...")
-#     remove_unwanted_files(root_dir, allowed_extensions)
-    
-#     # Step 2: Remove empty directories
-#     print("Removing empty directories...")
-#     remove_empty_directories(root_dir)
-    
-#     print("Cleanup complete.")
-
-
-def remove_unnecessary_data(root_dir: str, allowed_extensions: Set[str]) -> None:
+def remove_unnecessary_data(root_dir: str) -> None:
     """
-    Removes unwanted files and empty directories from the specified root directory.
-
-    Parameters:
-        root_dir (str): The root directory to process.
-        allowed_extensions (set): A set of allowed file extensions (e.g., {".jpg", ".png"}).
+    Removes unwanted files and empty directories.
     """
-    console.print(Panel(f"[bold cyan]Bigin the Cleaning: [white]{root_dir}", 
-                        title="[bold]Cleaning Process", 
-                        subtitle="Deletion of unnecessary files or directories"))
-    
+    unwanted_file_names = {
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+        "ehthumbs.db",
+        "ehthumbs_vista.db",
+        "$RECYCLE.BIN",
+        ".Trash",
+        ".localized",
+        ".thumbnails"
+    } #削除したいファイル名
+
+    console.print(
+      Panel(
+        f"[bold cyan]Begin the Cleaning: [white]{root_dir}",
+        title="[bold]Cleaning Process",
+        subtitle="Deletion of unnecessary files or directories",
+    )
+    )
+
     # Step 1: Remove unwanted files
     console.print("[bold blue]STEP 1: Deleting unnecessary files...")
-    remove_unwanted_files(root_dir, allowed_extensions)
-    
+    removed_files, error_files = remove_unwanted_files(root_dir, unwanted_file_names) # 変更
+
     # Step 2: Remove empty directories
     console.print("[bold blue]STEP 2: Deleting empty directories...")
-    remove_empty_directories(root_dir)
-    
-    console.print(Panel("[bold green]CLEAN UP DONE", 
-                        title="[bold]COMPLETE!!", 
-                        subtitle=f"Target Directory: {root_dir}"))
+    removed_dirs, error_dirs = remove_empty_directories(root_dir) #変更
 
+    # エラー出力
+    _print_errors(error_files, error_dirs, console)
+
+
+    console.print(
+        Panel(
+            "[bold green]CLEAN UP DONE",
+            title="[bold]COMPLETE!!",
+            subtitle=f"Target Directory: {root_dir}",
+        )
+    )
+
+
+def _print_errors(error_files, error_dirs, console):
+    """Helper function to print errors"""
+    if error_files:
+        console.print("[bold red]Errors occurred while deleting files:[/]")
+        for file_path, error_msg in error_files:
+            console.print(f"  [red]- {file_path}:[/] {error_msg}")
+
+    if error_dirs:
+        console.print("[bold red]Errors occurred while deleting directories:[/]")
+        for dir_path, error_msg in error_dirs:
+            console.print(f"  [red]- {dir_path}:[/] {error_msg}")
+
+    if not error_files and not error_dirs:
+        console.print("[bold green]No errors occurred during the cleanup process.[/]")
 
 
 
