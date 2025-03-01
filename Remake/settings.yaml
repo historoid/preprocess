@@ -26,26 +26,12 @@ patient_root:
 
 # extensions of images that OpenCV/ Pillow can load
 image_ext:
-  - '.cr2'
   - '.jpg'
   - '.jpeg'
   - '.png'
   - '.bmp'
-  - '.dib'
   - '.gif'
-  - '.ico'
-  - '.pcx'
-  - '.tga'
-  - '.dds'
-  - '.webp'
-  - '.ppm'
-  - '.pgm'
-  - '.pbm'
-  - '.ras'
-  - '.hdr'
-  - '.pic'
   - '.jp2'
-  - '.tga'
   - '.tif'
   - '.tiff'
 

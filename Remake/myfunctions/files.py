@@ -93,70 +93,65 @@ def copy_directory_with_metadata(src: str, dst: str, overwrite: bool = False) ->
     print(f"Directory '{src}' copied to '{dst}' with overwrite={overwrite}.")
 
 
-def remove_unwanted_files(root_dir: str, unwanted_files: Set[str]) -> Tuple[List[str], List[Tuple[str, str]]]:
+def remove_unwanted_files(root_dir: str, unwanted_files: Set[str], allowed_extensions: Set[str] = None) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
-    Removes specific unwanted files (like .DS_Store, Thumbs.db) from the specified root directory.
+    指定された root_dir 以下の全階層を再帰的に探索し、
+    ファイル名が unwanted_files に含まれるか、または allowed_extensions が指定されていてファイルの拡張子が含まれていない場合に
+    該当ファイルを削除します。
 
     Args:
-        root_dir (str): The root directory to process.
-        unwanted_files (Set[str]): A set of *filenames* (not extensions) to remove.  e.g., {".DS_Store", "Thumbs.db"}
+        root_dir (str): 探索対象のルートディレクトリ。
+        unwanted_files (Set[str]): 削除対象とするファイル名の集合（例：{".DS_Store", "Thumbs.db"}）。
+        allowed_extensions (Set[str], optional): 残すべきファイルの拡張子集合。これに含まれないファイルは削除対象となります。
 
     Returns:
-        Tuple[List[str], List[Tuple[str, str]]]: (removed_files, error_files)
-            removed_files: List of paths to removed files.
-            error_files: List of (file_path, error_message) tuples.
-
+        Tuple[List[str], List[Tuple[str, str]]]:
+            - removed_files: 削除に成功したファイルのパスリスト。
+            - error_files: 削除時に発生したエラーの (file_path, error_message) のリスト。
     """
     assert isinstance(root_dir, str), "root_dir must be a string."
     assert isinstance(unwanted_files, set), "unwanted_files must be a set."
-
+    
     removed_files: List[str] = []
     error_files: List[Tuple[str, str]] = []
-
+    
     for root, _, files in os.walk(root_dir):
         for file_name in files:
-            if file_name in unwanted_files:  # ファイル名で判定
-                file_path = os.path.join(root, file_name)
+            file_path = os.path.join(root, file_name)
+            ext = os.path.splitext(file_name)[1].lower()
+            # 削除対象：ファイル名が unwanted_files にある OR
+            # allowed_extensions が指定されていて、その拡張子が含まれていない場合
+            if file_name in unwanted_files or (allowed_extensions is not None and ext not in allowed_extensions):
                 try:
                     os.remove(file_path)
                     removed_files.append(file_path)
                 except Exception as e:
                     error_files.append((file_path, str(e)))
-
-    # (Progress, Table 表示は省略.  必要に応じて追加してください)
-
     return removed_files, error_files
 
 
 
 def is_empty_dir(dir_path: str) -> bool:
-    """Checks if a directory is empty, considering hidden files and directories."""
+    """指定ディレクトリ内に隠しファイル以外のエントリがなければ True を返す。"""
     for entry in os.scandir(dir_path):
         if entry.name in ('.', '..'):
             continue
-
         if entry.is_symlink():
             try:
                 if not os.path.exists(entry.path):
                     continue
             except OSError:
                 continue
-
         return False
     return True
 
 
 def remove_empty_directories(root_dir: str) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
-    Recursively removes empty directories from the specified root directory.
+    指定された root_dir 以下の空ディレクトリを再帰的に削除します。
 
-    Parameters:
-        root_dir (str): The root directory to process.
     Returns:
         Tuple[List[str], List[Tuple[str, str]]]: (removed_dirs, error_dirs)
-            removed_dirs: List of paths to removed directories
-            error_dirs: List of (dir_path, error_message) tuples
-
     """
     assert isinstance(root_dir, str), "root_dir must be a string."
 
@@ -167,59 +162,39 @@ def remove_empty_directories(root_dir: str) -> Tuple[List[str], List[Tuple[str, 
         iteration = 1
         while True:
             found_empty_dirs: List[str] = []
-
             for root, dirs, _ in os.walk(root_dir, topdown=False):
                 for dir_name in dirs:
                     dir_path = os.path.join(root, dir_name)
                     if is_empty_dir(dir_path):
                         found_empty_dirs.append(dir_path)
-
             if not found_empty_dirs:
                 status.update("[bold green]No more empty directories found.")
                 break
-
             status.update(f"[bold blue]空のディレクトリを検索中... (iteration {iteration})")
-
             with Progress(
                 TextColumn("[bold blue]{task.description}"),
                 BarColumn(),
                 TaskProgressColumn(),
             ) as progress:
-                task = progress.add_task(
-                    "[yellow]Deleting an empty directory...", total=len(found_empty_dirs)
-                )
-
+                task = progress.add_task("[yellow]Deleting an empty directory...", total=len(found_empty_dirs))
                 for dir_path in found_empty_dirs:
                     dir_name = os.path.basename(dir_path)
-                    progress.update(
-                        task, description=f"[yellow]Deleting: [bold white]{dir_name}"
-                    )
-
+                    progress.update(task, description=f"[yellow]Deleting: [bold white]{dir_name}")
                     try:
                         os.rmdir(dir_path)
                         removed_dirs.append(dir_path)
                     except Exception as e:
                         error_dirs.append((dir_path, str(e)))
-
                     progress.update(task, advance=1)
-
             iteration += 1
 
     if removed_dirs:
         table = Table(title="Deleted Directories", box=box.ROUNDED)
         table.add_column("No.", style="cyan")
         table.add_column("Directory path", style="green")
-
         for i, dir_path in enumerate(removed_dirs, 1):
             table.add_row(str(i), dir_path)
-
-        console.print(
-            Panel(
-                table,
-                title="[bold green]Complete Deletion",
-                subtitle=f"合計: {len(removed_dirs)}ディレクトリ",
-            )
-        )
+        console.print(Panel(table, title="[bold green]Complete Deletion", subtitle=f"合計: {len(removed_dirs)}ディレクトリ"))
     else:
         console.print("[yellow]There were NO directories to delete")
 
@@ -228,25 +203,49 @@ def remove_empty_directories(root_dir: str) -> Tuple[List[str], List[Tuple[str, 
         error_table.add_column("No.", style="cyan")
         error_table.add_column("Directory path", style="red")
         error_table.add_column("Error Message", style="yellow")
-
         for i, (dir_path, error) in enumerate(error_dirs, 1):
             error_table.add_row(str(i), dir_path, error)
-
-        console.print(
-            Panel(
-                error_table, title="[bold red]Error", subtitle=f"Total: {len(error_dirs)}directories"
-            )
-        )
-    return removed_dirs, error_dirs # 戻り値を返す
+        console.print(Panel(error_table, title="[bold red]Error", subtitle=f"Total: {len(error_dirs)} directories"))
+    return removed_dirs, error_dirs
 
 
-def remove_unnecessary_data(root_dir: str, unwanted_file_names: Set[str]) -> None:
+def remove_small_files(root_dir: str, allowed_extensions: Set[str], size_threshold_kb: int = 300) -> Tuple[List[str], List[Tuple[str, str]]]:
     """
-    Removes unwanted files and empty directories.
+    指定されたディレクトリ内で、allowed_extensions に含まれる拡張子を持つファイルのうち、
+    サイズが size_threshold_kb 以下のファイルを削除します。
+
+    Returns:
+        Tuple[List[str], List[Tuple[str, str]]]: (removed_files, error_files)
+    """
+    removed_files = []
+    error_files = []
+    size_threshold_bytes = size_threshold_kb * 1024
+
+    for root, _, files in os.walk(root_dir):
+        for file_name in files:
+            ext = os.path.splitext(file_name)[1].lower()
+            if ext in allowed_extensions:
+                file_path = os.path.join(root, file_name)
+                try:
+                    file_size = os.path.getsize(file_path)
+                    if file_size <= size_threshold_bytes:
+                        os.remove(file_path)
+                        removed_files.append(file_path)
+                except Exception as e:
+                    error_files.append((file_path, str(e)))
+    return removed_files, error_files
+
+
+def remove_unnecessary_data(root_dir: str, unwanted_file_names: Set[str], allowed_extensions: Set[str], size_threshold_kb: int = 100) -> None:
+    """
+    不要なファイル（不要なファイル名や、allowed_extensions に含まれない拡張子のファイル）、
+    小さすぎるファイル、および空のディレクトリを削除します。
 
     Args:
-        root_dir (str): The root directory to process.
-        unwanted_file_names (Set[str]): Set of filenames to remove.
+        root_dir (str): 処理対象のルートディレクトリ。
+        unwanted_file_names (Set[str]): 削除対象とするファイル名の集合。
+        allowed_extensions (Set[str]): 残すべきファイルの拡張子集合。これに含まれないファイルは削除対象。
+        size_threshold_kb (int): 小さすぎるファイルとみなすサイズの閾値（キロバイト）。
     """
     console.print(
         Panel(
@@ -255,14 +254,22 @@ def remove_unnecessary_data(root_dir: str, unwanted_file_names: Set[str]) -> Non
             subtitle="Deletion of unnecessary files or directories",
         )
     )
-    # Step 1: Remove unwanted files
+    # STEP 1: 不要なファイルの削除（指定ファイル名＋allowed_extensions に含まれないファイル）
     console.print("[bold blue]STEP 1: Deleting unnecessary files...")
-    removed_files, error_files = remove_unwanted_files(root_dir, unwanted_file_names)
-    # Step 2: Remove empty directories
-    console.print("[bold blue]STEP 2: Deleting empty directories...")
+    removed_files, error_files = remove_unwanted_files(root_dir, unwanted_file_names, allowed_extensions)
+    
+    # STEP 2: 小さすぎるファイルの削除（allowed_extensions の対象ファイルのみ）
+    console.print(f"[bold blue]STEP 2: Deleting files smaller than {size_threshold_kb}KB...")
+    removed_small_files, error_small_files = remove_small_files(root_dir, allowed_extensions, size_threshold_kb)
+    
+    # STEP 3: 空のディレクトリの削除
+    console.print("[bold blue]STEP 3: Deleting empty directories...")
     removed_dirs, error_dirs = remove_empty_directories(root_dir)
+    
     # エラー出力
-    _print_errors(error_files, error_dirs, console)
+    all_error_files = error_files + error_small_files
+    _print_errors(all_error_files, error_dirs, console)
+    
     console.print(
         Panel(
             "[bold green]CLEAN UP DONE",
@@ -272,20 +279,18 @@ def remove_unnecessary_data(root_dir: str, unwanted_file_names: Set[str]) -> Non
     )
 
 
-def _print_errors(error_files, error_dirs, console):
-    """Helper function to print errors"""
+def _print_errors(error_files: List[Tuple[str, str]], error_dirs: List[Tuple[str, str]], console: Console) -> None:
+    """エラー内容をコンソールに出力するヘルパー関数"""
     if error_files:
-        console.print("[bold red]Errors occurred while deleting files:[/]")
-        for file_path, error_msg in error_files:
-            console.print(f"  [red]- {file_path}:[/] {error_msg}")
-
+        console.print("[bold red]Files deletion errors:")
+        for file_path, error in error_files:
+            console.print(f"  [red]- {file_path}: {error}")
     if error_dirs:
-        console.print("[bold red]Errors occurred while deleting directories:[/]")
-        for dir_path, error_msg in error_dirs:
-            console.print(f"  [red]- {dir_path}:[/] {error_msg}")
-
+        console.print("[bold red]Directory deletion errors:")
+        for dir_path, error in error_dirs:
+            console.print(f"  [red]- {dir_path}: {error}")
     if not error_files and not error_dirs:
-        console.print("[bold green]No errors occurred during the cleanup process.[/]")
+        console.print("[bold green]No errors occurred during the cleanup process.")
 
 
 def normalize_and_remove_spaces(name: str) -> str:
@@ -301,7 +306,7 @@ def normalize_and_remove_spaces(name: str) -> str:
         The normalized name.
     """
     normalized_name = unicodedata.normalize("NFKC", name)  # 全角を半角に
-    normalized_name = normalized_name.replace(" ", "").replace("　", "")  # スペース除去
+    normalized_name = normalized_name.replace(" ", "").replace("　", "").replace("・","")
     return normalized_name
 
 
@@ -515,19 +520,19 @@ def organize_patient_data(root_dir: str, patient_root_paths: List[str], allowed_
 
 
 
-def move_patient_folders_to_target(root_dirs: list, target_dir: str) -> None:
+def move_patient_folders_to_target(root_dirs: List[str], target_dir: str) -> None:
     """
-    Moves all patient folders from multiple root directories to a single target directory.
+    複数の収集元ディレクトリ（root_dirs）内の患者フォルダを、単一の target_dir に移動します。
     
     Parameters:
-        root_dirs (list): A list of root directories containing patient folders.
-        target_dir (str): The directory where all patient folders will be moved.
-    
+        root_dirs (List[str]): 患者フォルダが格納されている複数のディレクトリ
+        target_dir (str): 患者フォルダを統合する先のディレクトリ
+
     Raises:
-        FileNotFoundError: If any of the root directories or the target directory does not exist.
-        ValueError: If root_dirs is not a list or target_dir is not a string.
+        FileNotFoundError: いずれかのディレクトリが存在しない場合
+        ValueError: 引数の型が不正な場合
     """
-    # Input validation
+    # 入力検証
     if not isinstance(root_dirs, list):
         raise ValueError("root_dirs must be a list of paths.")
     if not isinstance(target_dir, str):
@@ -539,46 +544,57 @@ def move_patient_folders_to_target(root_dirs: list, target_dir: str) -> None:
         if not os.path.exists(root_dir):
             raise FileNotFoundError(f"Root directory '{root_dir}' does not exist.")
 
-    # Move each patient folder
-    for root_dir in root_dirs:
-        for item in os.listdir(root_dir):
-            item_path = os.path.join(root_dir, item)
+    total_folders = sum(
+        1 for root_dir in root_dirs for item in os.listdir(root_dir)
+        if os.path.isdir(os.path.join(root_dir, item))
+    )
 
-            # Skip non-directory items
-            if not os.path.isdir(item_path):
-                continue
+    console.print(Panel(f"統合対象の患者フォルダ数: {total_folders}", style="bold cyan"))
 
-            # Define the target path for the patient folder
-            target_path = os.path.join(target_dir, item)
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task("[cyan]患者フォルダを統合中...", total=total_folders)
+        for root_dir in root_dirs:
+            for item in os.listdir(root_dir):
+                item_path = os.path.join(root_dir, item)
+                if not os.path.isdir(item_path):
+                    continue
 
-            # Handle name conflicts by appending a unique number
-            unique_target_path = target_path
-            counter = 1
-            while os.path.exists(unique_target_path):
-                unique_target_path = f"{target_path}_{counter}"
-                counter += 1
+                target_path = os.path.join(target_dir, item)
+                # 名前の重複を避ける
+                unique_target_path = target_path
+                counter = 1
+                while os.path.exists(unique_target_path):
+                    unique_target_path = f"{target_path}_{counter}"
+                    counter += 1
 
-            # Move the folder
-            shutil.move(item_path, unique_target_path)
-            print(f"Moved '{item_path}' to '{unique_target_path}'")
+                try:
+                    shutil.move(item_path, unique_target_path)
+                    console.print(f"[green]移動成功:[/] '{item_path}' → '{unique_target_path}'")
+                except Exception as e:
+                    console.print(f"[red]移動失敗:[/] '{item_path}' の移動中にエラー: {e}")
+                progress.advance(task)
+    console.print(Panel("全ての患者フォルダの統合が完了しました。", style="bold green"))
 
-    print("All patient folders have been successfully moved.")
 
 
-
-def organize_images_in_patient_folders(parent_folder: str, allowed_extensions: list) -> None:
+def organize_images_in_patient_folders(parent_folder: str, allowed_extensions: List[str]) -> None:
     """
-    Moves image files from subdirectories to the patient folder root.
-
+    患者フォルダ内のすべての画像ファイルを、各患者フォルダ直下に移動してフラットな構造に整えます。
+    
     Parameters:
-        parent_folder (str): Path to the folder containing patient folders.
-        allowed_extensions (list): List of allowed file extensions (e.g., [".jpg", ".png"]).
+        parent_folder (str): 患者フォルダが格納されているルートディレクトリ
+        allowed_extensions (List[str]): 処理対象とする画像ファイルの拡張子リスト（例：[".jpg", ".png", ...]）
 
     Raises:
-        FileNotFoundError: If the parent folder does not exist.
-        ValueError: If allowed_extensions is not a list or parent_folder is not a string.
+        FileNotFoundError: parent_folder が存在しない場合
+        ValueError: 引数の型が不正な場合
     """
-    # Input validation
     if not isinstance(parent_folder, str):
         raise ValueError("parent_folder must be a string.")
     if not isinstance(allowed_extensions, list):
@@ -586,40 +602,51 @@ def organize_images_in_patient_folders(parent_folder: str, allowed_extensions: l
     if not os.path.exists(parent_folder):
         raise FileNotFoundError(f"The folder '{parent_folder}' does not exist.")
 
-    # Process each patient folder
-    for patient_folder in os.listdir(parent_folder):
-        patient_folder_path = os.path.join(parent_folder, patient_folder)
+    patient_folders = [
+        os.path.join(parent_folder, folder)
+        for folder in os.listdir(parent_folder)
+        if os.path.isdir(os.path.join(parent_folder, folder))
+    ]
+    total_folders = len(patient_folders)
+    console.print(Panel(f"処理対象の患者フォルダ数: {total_folders}", style="bold cyan"))
 
-        # Skip non-directory items
-        if not os.path.isdir(patient_folder_path):
-            continue
-
-        print(f"Processing patient folder: {patient_folder_path}")
-
-        # Traverse all files within the patient folder
-        for root, _, files in os.walk(patient_folder_path):
-            for file_name in files:
-                # Check file extension
-                ext = os.path.splitext(file_name)[1].lower()
-                if ext not in allowed_extensions:
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task("[cyan]患者フォルダ内を整理中...", total=total_folders)
+        for patient_folder_path in patient_folders:
+            console.print(f"[blue]処理中:[/] {patient_folder_path}")
+            # 再帰的にファイルを探索して、ルート以外の位置にある画像ファイルを移動
+            for root, _, files in os.walk(patient_folder_path):
+                # ルート（患者フォルダ直下）は除外
+                if os.path.abspath(root) == os.path.abspath(patient_folder_path):
                     continue
+                for file_name in files:
+                    ext = os.path.splitext(file_name)[1].lower()
+                    if ext not in allowed_extensions:
+                        continue
 
-                # Define source and destination paths
-                src_path = os.path.join(root, file_name)
-                dst_path = os.path.join(patient_folder_path, file_name)
+                    src_path = os.path.join(root, file_name)
+                    dst_path = os.path.join(patient_folder_path, file_name)
+                    unique_dst_path = dst_path
+                    counter = 1
+                    while os.path.exists(unique_dst_path):
+                        base, ext = os.path.splitext(dst_path)
+                        unique_dst_path = f"{base}_{counter}{ext}"
+                        counter += 1
 
-                # Handle name conflicts
-                unique_dst_path = dst_path
-                counter = 1
-                while os.path.exists(unique_dst_path):
-                    unique_dst_path = f"{os.path.splitext(dst_path)[0]}_{counter}{ext}"
-                    counter += 1
+                    try:
+                        shutil.move(src_path, unique_dst_path)
+                        console.print(f"[green]移動:[/] '{src_path}' → '{unique_dst_path}'")
+                    except Exception as e:
+                        console.print(f"[red]エラー:[/] '{src_path}' の移動中にエラー: {e}")
+            progress.advance(task)
+    console.print(Panel("患者フォルダ内の整理が完了しました。", style="bold green"))
 
-                # Move the file
-                shutil.move(src_path, unique_dst_path)
-                print(f"Moved '{src_path}' to '{unique_dst_path}'")
-
-    print("Image organization process completed.")
 
 
 
